@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../config/db.js';
 import { AuthenticatedRequest } from '../../middleware/auth.js';
 import { dayKey, mergeShifts } from './helpers.js';
+import { ShiftSegment } from '@prisma/client';
 
 export const startShift = async (
   req: AuthenticatedRequest,
@@ -50,7 +51,7 @@ export const startSegment = async (
       return;
     }
 
-    const running = active.segments.find((s) => !s.endTime);
+    const running = active.segments.find((s: ShiftSegment) => !s.endTime);
     if (running) {
       await prisma.shiftSegment.update({
         where: { id: running.id },
@@ -90,7 +91,7 @@ export const endSegment = async (
       return;
     }
 
-    const running = active.segments.find((s) => !s.endTime);
+    const running = active.segments.find((s: ShiftSegment) => !s.endTime);
     if (!running) {
       res.status(400).json({ success: false, error: { message: 'No active segment to stop' } });
       return;
@@ -125,7 +126,7 @@ export const closeShift = async (
       return;
     }
 
-    const running = active.segments.find((s) => !s.endTime);
+    const running = active.segments.find((s: ShiftSegment) => !s.endTime);
     if (running) {
       await prisma.shiftSegment.update({
         where: { id: running.id },
