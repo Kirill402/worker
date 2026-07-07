@@ -9,6 +9,7 @@
   "scripts": {
     "client:dev": "npm run dev --workspace=client",
     "server:dev": "npm run dev --workspace=server",
+    "build": "npm run build:shared && npm run build:client && npm run build:server",
     "build:shared": "npm run build --workspace=shared",
     "build:client": "npm run build --workspace=client",
     "build:server": "npm run build --workspace=server"
