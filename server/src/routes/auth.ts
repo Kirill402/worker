@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { loginSchema, registerSchema, LoginInput, RegisterInput, ApiResponse, Session } from 'shared';
 import { validate } from '../middleware/validate.js';
 import { prisma } from '../config/db.js';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 
@@ -13,7 +14,7 @@ const handleLogin = async (
   try {
     const { email, password } = req.body;
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || user.password !== password) {
+    if (!user || !bcrypt.compareSync(password, user.password)) {
       res.status(401).json({
         success: false,
         error: { message: 'Invalid email or password' },
@@ -53,10 +54,11 @@ const handleRegister = async (
       return;
     }
 
+    const hashedPassword = bcrypt.hashSync(password, 10);
     const newUser = await prisma.user.create({
       data: {
         email,
-        password,
+        password: hashedPassword,
         name,
         role: 'CLIENT',
         settings: {
