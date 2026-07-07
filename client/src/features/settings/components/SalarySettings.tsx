@@ -93,25 +93,32 @@ export const SalarySettings: React.FC = () => {
         <p className="block text-sm font-medium text-gray-300">Пороги премий за выработку</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {form.bonusTiers.map((tier, idx) => (
-            <div key={idx} className="flex items-center gap-2 p-3 bg-white/5 rounded-xl border border-white/5">
-              <span className="text-xs text-gray-400">Порог {idx + 1}: за</span>
-              <input
-                type="number"
-                value={tier.threshold || ''}
-                onChange={(e) => handleTierChange(idx, 'threshold', e.target.value)}
-                placeholder="0"
-                className="w-16 px-2 py-1 rounded bg-[#0a0a0f] border border-white/10 text-sm text-center"
-              />
-              <span className="text-sm text-gray-400">%</span>
-              <span className="text-xs text-gray-400">→ +</span>
-              <input
-                type="number"
-                value={tier.amount || ''}
-                onChange={(e) => handleTierChange(idx, 'amount', e.target.value)}
-                placeholder="0"
-                className="w-20 px-2 py-1 rounded bg-[#0a0a0f] border border-white/10 text-sm text-center"
-              />
-              <span className="text-sm text-gray-400">zł</span>
+            <div key={idx} className="p-3 bg-white/5 rounded-xl border border-white/5 space-y-2">
+              <span className="text-xs font-bold text-gray-400 block border-b border-white/5 pb-1">Порог {idx + 1}</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-400">при</span>
+                  <input
+                    type="number"
+                    value={tier.threshold || ''}
+                    onChange={(e) => handleTierChange(idx, 'threshold', e.target.value)}
+                    placeholder="0"
+                    className="w-14 px-1.5 py-0.5 rounded bg-[#0a0a0f] border border-white/10 text-xs text-center text-white"
+                  />
+                  <span className="text-xs text-gray-400">%</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-400">премия</span>
+                  <input
+                    type="number"
+                    value={tier.amount || ''}
+                    onChange={(e) => handleTierChange(idx, 'amount', e.target.value)}
+                    placeholder="0"
+                    className="w-16 px-1.5 py-0.5 rounded bg-[#0a0a0f] border border-white/10 text-xs text-center text-white"
+                  />
+                  <span className="text-xs text-gray-400">zł</span>
+                </div>
+              </div>
             </div>
           ))}
         </div>
