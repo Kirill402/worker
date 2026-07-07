@@ -1,0 +1,75 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CLIENT
+  ADMIN
+  PROVIDER
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  name      String
+  password  String
+  role      Role      @default(CLIENT)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  settings  Setting?
+  processes Process[]
+  shifts    Shift[]
+}
+
+model Setting {
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlySalary         Float    @default(0)
+  rateWeekdayOvertime   Float    @default(0)
+  rateSaturdayOvertime  Float    @default(0)
+  bonusTiers            Json     // Array of { threshold: number, amount: number }
+  updatedAt             DateTime @updatedAt
+}
+
+model Process {
+  id           String         @id @default(uuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  normMinutes  Float
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  segments     ShiftSegment[]
+}
+
+model Shift {
+  id          String         @id @default(uuid())
+  userId      String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        String
+  startTime   DateTime
+  endTime     DateTime?
+  isFinalized Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  segments    ShiftSegment[]
+}
+
+model ShiftSegment {
+  id          String    @id @default(uuid())
+  shiftId     String
+  shift       Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  processId   String
+  process     Process   @relation(fields: [processId], references: [id], onDelete: Cascade)
+  startTime   DateTime
+  endTime     DateTime?
+  quantity    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
