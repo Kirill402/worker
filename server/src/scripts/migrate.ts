@@ -30,6 +30,88 @@ export const mergeShifts = async (userId: string, shiftId: string) => {
   await prisma.shift.delete({ where: { id: shift.id } });
 };
 
+const createCoreTables = async () => {
+  console.log('[Migration] Dropping empty relational tables to recreate them...');
+  await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS public."ShiftSegment" CASCADE;`);
+  await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS public."Shift" CASCADE;`);
+  await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS public."Process" CASCADE;`);
+  await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS public."Setting" CASCADE;`);
+  await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS public."User" CASCADE;`);
+
+  console.log('[Migration] Creating public.User, Setting, and Process tables...');
+  await prisma.$executeRawUnsafe(`
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'Role') THEN
+            CREATE TYPE public."Role" AS ENUM ('CLIENT', 'ADMIN', 'PROVIDER');
+        END IF;
+    END$$;
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS public."User" (
+      id UUID PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      password TEXT NOT NULL,
+      role public."Role" NOT NULL DEFAULT 'CLIENT',
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+      "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS public."Setting" (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      "userId" UUID UNIQUE NOT NULL REFERENCES public."User"(id) ON DELETE CASCADE,
+      "monthlySalary" DOUBLE PRECISION NOT NULL DEFAULT 0,
+      "rateWeekdayOvertime" DOUBLE PRECISION NOT NULL DEFAULT 0,
+      "rateSaturdayOvertime" DOUBLE PRECISION NOT NULL DEFAULT 0,
+      "bonusTiers" JSONB NOT NULL,
+      "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS public."Process" (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      "userId" UUID NOT NULL REFERENCES public."User"(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      "normMinutes" DOUBLE PRECISION NOT NULL,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+      "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+};
+
+const createShiftTables = async () => {
+  console.log('[Migration] Creating public.Shift and ShiftSegment tables...');
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS public."Shift" (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      "userId" UUID NOT NULL REFERENCES public."User"(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      "startTime" TIMESTAMPTZ NOT NULL,
+      "endTime" TIMESTAMPTZ,
+      "isFinalized" BOOLEAN NOT NULL DEFAULT false,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+      "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS public."ShiftSegment" (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      "shiftId" UUID NOT NULL REFERENCES public."Shift"(id) ON DELETE CASCADE,
+      "processId" UUID NOT NULL REFERENCES public."Process"(id) ON DELETE CASCADE,
+      "startTime" TIMESTAMPTZ NOT NULL,
+      "endTime" TIMESTAMPTZ,
+      quantity INTEGER NOT NULL DEFAULT 0,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+      "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+};
+
 const migrateUsers = async (supabaseUsers: any[]) => {
   for (const su of supabaseUsers) {
     const meta = su.raw_user_meta_data ? JSON.parse(JSON.stringify(su.raw_user_meta_data)) : {};
@@ -102,7 +184,7 @@ const migrateUserShifts = async (userId: string, keys: any, processIdMap: Record
     if (existingShift) continue;
 
     const newShift = await prisma.shift.create({
-      data: { userId, date: oldShift.startTime.split('T')[0], startTime: start, endTime: end, isFinalized: true },
+      data: { userId, date: start.toISOString().split('T')[0], startTime: start, endTime: end, isFinalized: true },
     });
 
     if (oldShift.segments) {
@@ -128,6 +210,9 @@ const migrateUserShifts = async (userId: string, keys: any, processIdMap: Record
 const runMigration = async () => {
   console.log('[Migration] Starting migration of old Supabase data...');
   try {
+    await createCoreTables();
+    await createShiftTables();
+
     const supabaseUsers: any[] = await prisma.$queryRawUnsafe(
       `SELECT id, email, encrypted_password, raw_user_meta_data FROM auth.users`
     );
